@@ -1,56 +1,72 @@
 import { useState, useEffect } from 'react'
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { usePathname, useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { io } from 'socket.io-client'
-import { useAuth, UserButton } from '@clerk/clerk-react'
+import { useAuth, UserButton } from '@clerk/nextjs'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   LayoutDashboard,
   Code2,
   Trophy,
   Swords,
+  Award,
+  Activity,
   GraduationCap,
   User,
+  Users,
   Flame,
   Menu,
   X,
   Zap,
   ShieldCheck,
+  Brain,
+  Settings,
 } from 'lucide-react'
 import useUserStore from '@/stores/useUserStore'
 import { setAuthInterceptor, setDevAuthInterceptor } from '@/lib/api'
 import useNotificationStore, { NOTIFICATION_EVENTS } from '@/stores/useNotificationStore'
 import NotificationCenter from './NotificationCenter'
 import { clsx } from 'clsx'
+import CustomCursor from '../ui/CustomCursor'
+import Tooltip from '../ui/Tooltip'
+import ShortcutsPanel from '../ui/ShortcutsPanel'
+import useDeviceTier from '@/hooks/useDeviceTier'
 
-const CLERK_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
+const CLERK_KEY = process.env.VITE_CLERK_PUBLISHABLE_KEY
 const isDevMode = !CLERK_KEY || CLERK_KEY === 'pk_test_xxxx' || CLERK_KEY === 'pk_test_placeholder'
 
 const NAV_LINKS = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/problems',  label: 'Problems',  icon: Code2 },
+  { to: '/community', label: 'Community', icon: Users },
+  { to: '/community/activity', label: 'Activity', icon: Activity },
+  { to: '/ai-chat',   label: 'AI Mentor', icon: Brain },
   { to: '/contests',  label: 'Contests',  icon: Trophy },
   { to: '/battle',    label: 'Battle',    icon: Swords },
   { to: '/classroom/join', label: 'Classroom', icon: GraduationCap },
-  { to: '/profile',        label: 'Profile',   icon: User },
+  { to: '/certificates', label: 'Certificates', icon: Award },
+  { to: '/profile',      label: 'Profile',      icon: User },
+  { to: '/settings',      label: 'Settings',      icon: Settings },
 ]
 
 function NavItem({ to, label, Icon, onClick }) {
+  const pathname = usePathname()
+  const isActive = pathname.startsWith(to)
+
   return (
-    <NavLink
-      to={to}
+    <Link
+      href={to}
       onClick={onClick}
-      className={({ isActive }) =>
-        clsx(
-          'flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all text-sm font-medium',
-          isActive
-            ? 'bg-primary-600/20 text-primary-400 border-l-2 border-primary-500'
-            : 'text-slate-400 hover:text-white hover:bg-dark-700 border-l-2 border-transparent',
-        )
-      }
+      className={clsx(
+        'flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all text-sm font-medium',
+        isActive
+          ? 'bg-primary-600/20 text-primary-400 border-l-2 border-primary-500'
+          : 'text-slate-400 hover:text-white hover:bg-dark-700 border-l-2 border-transparent',
+      )}
     >
       <Icon className="h-4 w-4 flex-shrink-0" />
       {label}
-    </NavLink>
+    </Link>
   )
 }
 
@@ -153,11 +169,21 @@ function Sidebar({ onClose }) {
   )
 }
 
-export default function AppLayout() {
+export default function AppLayout({ children }) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [authReady, setAuthReady] = useState(false)
-  const navigate = useNavigate()
+  const [toast, setToast] = useState(null)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  const router = useRouter()
+  const pathname = usePathname()
 
+  const showToast = (message) => {
+    const id = Date.now()
+    setToast({ message, id })
+    setTimeout(() => setToast((t) => (t?.id === id ? null : t)), 1800)
+  }
+
+  const setNotificationCenterOpen = useNotificationStore((s) => s.setNotificationCenterOpen)
   const userState  = useUserStore()
   const streakCurrent = userState.user?.streak?.current ?? 0
   const xp     = userState.user?.xp     ?? 0
@@ -169,7 +195,7 @@ export default function AppLayout() {
       const devToken = localStorage.getItem('algozen_dev_token')
       if (!devToken) {
         // Redirect to sign-in for dev login
-        navigate('/sign-in')
+        router.push('/sign-in')
         return
       }
       setDevAuthInterceptor()
@@ -178,10 +204,10 @@ export default function AppLayout() {
       // Production mode: use Clerk
       setAuthReady(true)
     }
-  }, [navigate])
+  }, [router])
 
   // Socket URL
-  const WS_URL = import.meta.env.VITE_SOCKET_URL || (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace('/api', '')
+  const WS_URL = process.env.NEXT_PUBLIC_SOCKET_URL || (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000').replace('/api', '')
 
   // Setup socket for real-time notifications
   useEffect(() => {
@@ -248,9 +274,44 @@ export default function AppLayout() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authReady, userState.user, userState.loading])
 
+  // Global keyboard shortcuts
+  useEffect(() => {
+    function handleKeyDown(e) {
+      // Don't intercept when typing in input fields
+      const tag = e.target.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return
+      // ? or Cmd+/ → open shortcuts panel
+      if (e.key === '?' || (e.key === '/' && e.shiftKey)) {
+        e.preventDefault()
+        setShortcutsOpen(true)
+        return
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === '/') {
+        e.preventDefault()
+        setShortcutsOpen(true)
+        return
+      }
+      // Cmd+9 / Ctrl+9 → toggle notification center
+      if ((e.metaKey || e.ctrlKey) && e.key === '9') {
+        e.preventDefault()
+        setNotificationCenterOpen((v) => !v)
+        return
+      }
+      // Cmd+, / Ctrl+, → navigate to settings
+      if ((e.metaKey || e.ctrlKey) && e.key === ',') {
+        e.preventDefault()
+        const mod = e.metaKey ? '⌘' : 'Ctrl'
+        showToast(`Opening settings (${mod},)`)
+        router.push('/settings')
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [router])
+
   // Setup Clerk interceptor if available
   if (!isDevMode) {
-    return <ClerkAppLayout mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
+    return <ClerkAppLayout mobileOpen={mobileOpen} setMobileOpen={setMobileOpen}>{children}</ClerkAppLayout>
   }
 
   if (!authReady) {
@@ -261,8 +322,13 @@ export default function AppLayout() {
     )
   }
 
+  const deviceTier = useDeviceTier()
+
   return (
     <div className="flex h-screen bg-dark-900 overflow-hidden">
+      {/* Custom cursor for non-touch devices */}
+      {deviceTier !== 'low' && <CustomCursor />}
+
       {/* Desktop sidebar */}
       <div className="hidden lg:flex lg:flex-shrink-0">
         <Sidebar />
@@ -318,6 +384,22 @@ export default function AppLayout() {
 
           {/* Right: notifications + streak + xp + user button */}
           <div className="flex items-center gap-2">
+            {/* Settings gear */}
+            <Tooltip label="Settings">
+              <Link
+                href="/settings"
+                className="rounded-full p-2 text-slate-400 hover:text-white hover:bg-dark-700 transition-colors"
+                aria-label="Settings"
+              >
+                <motion.span
+                  className="flex items-center justify-center"
+                  whileHover={{ rotate: 180 }}
+                  transition={{ type: 'spring', stiffness: 200, damping: 15 }}
+                >
+                  <Settings className="h-5 w-5" />
+                </motion.span>
+              </Link>
+            </Tooltip>
             <NotificationCenter />
             {streakCurrent > 0 && (
               <div className="flex items-center gap-1.5 rounded-full bg-dark-700 px-3 py-1">
@@ -341,15 +423,28 @@ export default function AppLayout() {
 
         {/* Page content */}
         <main className="flex-1 overflow-auto bg-dark-900">
-          <Outlet />
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={pathname}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2, ease: 'easeInOut' }}
+            >
+              {children}
+            </motion.div>
+          </AnimatePresence>
         </main>
       </div>
+
+      {/* Shortcuts panel */}
+      <ShortcutsPanel open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
     </div>
   )
 }
 
 // Separate component when Clerk is available
-function ClerkAppLayout({ mobileOpen, setMobileOpen }) {
+function ClerkAppLayout({ mobileOpen, setMobileOpen, children }) {
   const { getToken } = useAuth()
   const userState = useUserStore()
   const streakCurrent = userState.user?.streak?.current ?? 0
@@ -365,6 +460,54 @@ function ClerkAppLayout({ mobileOpen, setMobileOpen }) {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userState.user, userState.loading])
+
+  // Global keyboard shortcuts
+  const router = useRouter()
+  const pathname = usePathname()
+  const [toast, setToast] = useState(null)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
+
+  const showToast = (message) => {
+    const id = Date.now()
+    setToast({ message, id })
+    setTimeout(() => setToast((t) => (t?.id === id ? null : t)), 1800)
+  }
+
+  const setNotificationCenterOpen = useNotificationStore((s) => s.setNotificationCenterOpen)
+
+  useEffect(() => {
+    function handleKeyDown(e) {
+      // Don't intercept when typing in input fields
+      const tag = e.target.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return
+      // ? or Cmd+/ → open shortcuts panel
+      if (e.key === '?' || (e.key === '/' && e.shiftKey)) {
+        e.preventDefault()
+        setShortcutsOpen(true)
+        return
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === '/') {
+        e.preventDefault()
+        setShortcutsOpen(true)
+        return
+      }
+      // Cmd+9 / Ctrl+9 → toggle notification center
+      if ((e.metaKey || e.ctrlKey) && e.key === '9') {
+        e.preventDefault()
+        setNotificationCenterOpen((v) => !v)
+        return
+      }
+      // Cmd+, / Ctrl+, → navigate to settings
+      if ((e.metaKey || e.ctrlKey) && e.key === ',') {
+        e.preventDefault()
+        const mod = e.metaKey ? '⌘' : 'Ctrl'
+        showToast(`Opening settings (${mod},)`)
+        router.push('/settings')
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [router])
 
   return (
     <div className="flex h-screen bg-dark-900 overflow-hidden">
@@ -415,7 +558,38 @@ function ClerkAppLayout({ mobileOpen, setMobileOpen }) {
 
           <div className="hidden lg:block" />
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 relative">
+            {/* Toast notification */}
+            <AnimatePresence>
+              {toast && (
+                <motion.div
+                  key={toast.id}
+                  initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -4, scale: 0.95 }}
+                  transition={{ duration: 0.2 }}
+                  className="absolute right-0 -top-12 whitespace-nowrap rounded-lg bg-dark-700 border border-dark-500 px-3 py-1.5 text-xs text-slate-300 shadow-lg"
+                >
+                  {toast.message}
+                </motion.div>
+              )}
+            </AnimatePresence>
+            {/* Settings gear */}
+            <Tooltip label="Settings">
+              <Link
+                href="/settings"
+                className="rounded-full p-2 text-slate-400 hover:text-white hover:bg-dark-700 transition-colors"
+                aria-label="Settings"
+              >
+                <motion.span
+                  className="flex items-center justify-center"
+                  whileHover={{ rotate: 180 }}
+                  transition={{ type: 'spring', stiffness: 200, damping: 15 }}
+                >
+                  <Settings className="h-5 w-5" />
+                </motion.span>
+              </Link>
+            </Tooltip>
             <NotificationCenter />
             {streakCurrent > 0 && (
               <div className="flex items-center gap-1.5 rounded-full bg-dark-700 px-3 py-1">
@@ -432,9 +606,22 @@ function ClerkAppLayout({ mobileOpen, setMobileOpen }) {
         </header>
 
         <main className="flex-1 overflow-auto bg-dark-900">
-          <Outlet />
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={pathname}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2, ease: 'easeInOut' }}
+            >
+              {children}
+            </motion.div>
+          </AnimatePresence>
         </main>
       </div>
+
+      {/* Shortcuts panel */}
+      <ShortcutsPanel open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
     </div>
   )
 }

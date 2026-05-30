@@ -1,3 +1,4 @@
+"use client";
 import { Component } from 'react'
 import { Link } from 'react-router-dom'
 import { AlertTriangle, RefreshCcw, Home } from 'lucide-react'

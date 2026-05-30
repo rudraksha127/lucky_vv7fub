@@ -6,7 +6,7 @@ import { Toaster } from 'react-hot-toast'
 import './index.css'
 import App from './App.jsx'
 
-const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
+const PUBLISHABLE_KEY = process.env.VITE_CLERK_PUBLISHABLE_KEY
 const isDevMode = !PUBLISHABLE_KEY || PUBLISHABLE_KEY === 'pk_test_xxxx' || PUBLISHABLE_KEY === 'pk_test_placeholder'
 
 if (isDevMode) {

@@ -21,7 +21,7 @@ import clsx from 'clsx'
 import api from '@/lib/api'
 import { io } from 'socket.io-client'
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace('/api', '')
+const SOCKET_URL = process.env.VITE_SOCKET_URL || (process.env.VITE_API_URL || 'http://localhost:5000').replace('/api', '')
 
 const RANK_ICONS = {
   1: <Trophy className="w-5 h-5 text-yellow-400" />,

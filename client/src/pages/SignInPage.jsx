@@ -4,8 +4,9 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Zap, LogIn, Loader2 } from 'lucide-react'
 import api from '@/lib/api'
+import MagneticButton from '../components/ui/MagneticButton'
 
-const CLERK_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
+const CLERK_KEY = process.env.VITE_CLERK_PUBLISHABLE_KEY
 const isDevMode = !CLERK_KEY || CLERK_KEY === 'pk_test_xxxx' || CLERK_KEY === 'pk_test_placeholder'
 
 function DevLoginPanel() {
@@ -46,10 +47,11 @@ function DevLoginPanel() {
           Clerk auth keys not configured. Login as a demo user to test the full application.
         </p>
 
-        <button
+        <MagneticButton
+          as="button"
           onClick={handleDevLogin}
           disabled={loading}
-          className="w-full flex items-center justify-center gap-2.5 bg-gradient-to-r from-primary-600 to-accent-600 hover:from-primary-500 hover:to-accent-500 text-white font-semibold py-3.5 px-5 rounded-xl transition-all duration-200 hover:shadow-lg hover:shadow-primary-500/25 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+          innerClassName="w-full flex items-center justify-center gap-2.5 bg-gradient-to-r from-primary-600 to-accent-600 hover:from-primary-500 hover:to-accent-500 text-white font-semibold py-3.5 px-5 rounded-xl transition-all duration-200 hover:shadow-lg hover:shadow-primary-500/25 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? (
             <Loader2 className="h-5 w-5 animate-spin" />
@@ -57,7 +59,7 @@ function DevLoginPanel() {
             <LogIn className="h-5 w-5" />
           )}
           {loading ? 'Logging in...' : 'Login as Demo User'}
-        </button>
+        </MagneticButton>
 
         {error && (
           <motion.p

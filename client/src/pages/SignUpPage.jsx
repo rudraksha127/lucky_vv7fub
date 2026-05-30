@@ -2,7 +2,7 @@ import { SignUp } from '@clerk/clerk-react'
 import { Navigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 
-const CLERK_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
+const CLERK_KEY = process.env.VITE_CLERK_PUBLISHABLE_KEY
 const isDevMode = !CLERK_KEY || CLERK_KEY === 'pk_test_xxxx' || CLERK_KEY === 'pk_test_placeholder'
 
 export default function SignUpPage() {

@@ -33,8 +33,14 @@ const useNotificationStore = create(
         ? Notification.permission
         : 'default',
       notificationSound: true,
+      notificationCenterOpen: false,
 
       // ─── Actions ──────────────────────────────────────────
+
+      /** Toggle or set notification center dropdown */
+      setNotificationCenterOpen: (open) => {
+        set({ notificationCenterOpen: open })
+      },
 
       /** Request browser notification permission */
       requestBrowserPermission: async () => {

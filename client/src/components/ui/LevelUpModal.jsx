@@ -1,36 +1,97 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
+import useSettingsStore from '../../stores/useSettingsStore'
 import { motion, AnimatePresence } from 'framer-motion'
 import confetti from 'canvas-confetti'
 
 export default function LevelUpModal({ isOpen, onClose, prevLevel = 1, newLevel = 2, xpGained = 0, evolved = false, creatureName = '', rank = null }) {
+  const supernovaEnabled = useSettingsStore((s) => s.supernovaEffect)
+  const reducedMotion = useSettingsStore((s) => s.reducedMotion)
+  const supernovaRef = useRef(null)
+
+  // ── Supernova particles ────────────────
   useEffect(() => {
-    if (isOpen) {
-      const duration = 3 * 1000;
-      const end = Date.now() + duration;
+    if (!isOpen || !supernovaRef.current || !supernovaEnabled || reducedMotion) return
+    const container = supernovaRef.current
+    const particles = []
+    const count = 30
 
-      const frame = () => {
-        confetti({
-          particleCount: 5,
-          angle: 60,
-          spread: 55,
-          origin: { x: 0 },
-          colors: ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b']
-        });
-        confetti({
-          particleCount: 5,
-          angle: 120,
-          spread: 55,
-          origin: { x: 1 },
-          colors: ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b']
-        });
+    for (let i = 0; i < count; i++) {
+      const particle = document.createElement('div')
+      const size = 3 + Math.random() * 6
+      const angle = (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.5
+      const velocity = 80 + Math.random() * 160
+      const distance = velocity * (0.6 + Math.random() * 0.4)
+      const dx = Math.cos(angle) * distance
+      const dy = Math.sin(angle) * distance
+      const colors = ['#6366f1', '#8b5cf6', '#a78bfa', '#c4b5fd', '#f472b6', '#34d399', '#fbbf24']
 
-        if (Date.now() < end) {
-          requestAnimationFrame(frame);
-        }
-      };
-      frame();
+      Object.assign(particle.style, {
+        position: 'absolute',
+        top: '50%',
+        left: '50%',
+        width: `${size}px`,
+        height: `${size}px`,
+        borderRadius: Math.random() > 0.5 ? '50%' : '2px',
+        background: colors[Math.floor(Math.random() * colors.length)],
+        boxShadow: `0 0 ${6 + Math.random() * 8}px ${colors[0]}`,
+        pointerEvents: 'none',
+        transform: 'translate(-50%, -50%)',
+        opacity: '1',
+      })
+      container.appendChild(particle)
+      particles.push({ el: particle, dx, dy })
+
+      // Animate with WAAPI for performance
+      particle.animate([
+        { transform: 'translate(-50%, -50%) scale(0)', opacity: 1 },
+        { transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(1.5)`, opacity: 0 },
+      ], {
+        duration: 800 + Math.random() * 600,
+        delay: Math.random() * 200,
+        easing: 'cubic-bezier(0,.8,.5,1)',
+        fill: 'forwards',
+      })
     }
-  }, [isOpen]);
+
+    const cleanup = setTimeout(() => {
+      particles.forEach(p => p.el.remove())
+    }, 2000)
+
+    return () => {
+      clearTimeout(cleanup)
+      particles.forEach(p => p.el.remove())
+    }
+  }, [isOpen, reducedMotion])
+
+  // ── Confetti ───────────────────────────
+  useEffect(() => {
+    if (!isOpen || reducedMotion) return
+
+    const duration = 3 * 1000
+    const end = Date.now() + duration
+
+    const frame = () => {
+      confetti({
+        particleCount: 5,
+        angle: 60,
+        spread: 55,
+        origin: { x: 0 },
+        colors: ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b'],
+      })
+      confetti({
+        particleCount: 5,
+        angle: 120,
+        spread: 55,
+        origin: { x: 1 },
+        colors: ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b'],
+      })
+
+      if (Date.now() < end) {
+        requestAnimationFrame(frame)
+      }
+    }
+    frame()
+  }, [isOpen, reducedMotion])
 
   return (
     <AnimatePresence>
@@ -133,6 +194,13 @@ export default function LevelUpModal({ isOpen, onClose, prevLevel = 1, newLevel 
               </motion.button>
             </motion.div>
           </motion.div>
+
+          {/* Supernova particles (after card → renders on top, no overflow-hidden clipping) */}
+          <div
+            ref={supernovaRef}
+            className="absolute inset-0 pointer-events-none z-20"
+            style={{ transform: 'translateY(0)' }}
+          />
         </motion.div>
       )}
     </AnimatePresence>

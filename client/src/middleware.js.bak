@@ -1,0 +1,48 @@
+/**
+ * Middleware for AlgoZen Client
+ * 
+ * In development mode (with placeholder keys), we bypass Clerk authentication.
+ * In production, Clerk middleware protects specified routes.
+ */
+
+import { NextResponse } from 'next/server';
+
+// Check if we're in dev mode based on the publishable key
+const isDevMode = !process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ||
+  process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY.includes('placeholder') ||
+  process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY.includes('xxxx') ||
+  process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY === 'pk_test_12345';
+
+// In dev mode, simply pass through all requests
+if (isDevMode) {
+  export default function middleware() {
+    return NextResponse.next();
+  }
+} else {
+  // Production mode - use Clerk middleware
+  const { clerkMiddleware, createRouteMatcher } = await import('@clerk/nextjs/server');
+
+  const isProtectedRoute = createRouteMatcher([
+    '/dashboard(.*)',
+    '/battle(.*)',
+    '/profile(.*)',
+    '/classroom/join(.*)',
+    '/classroom/manage(.*)',
+    '/professor(.*)'
+  ]);
+
+  export default clerkMiddleware(async (auth, req) => {
+    if (isProtectedRoute(req)) {
+      await auth.protect();
+    }
+  });
+}
+
+export const config = {
+  matcher: [
+    // Skip Next.js internals and all static files
+    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
+    // Always run for API routes
+    '/(api|trpc)(.*)',
+  ],
+};

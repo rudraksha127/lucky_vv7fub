@@ -1,5 +1,6 @@
+"use client";
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import Link from 'next/link'
 import { motion } from 'framer-motion'
 import {
   CheckCircle2,
@@ -10,11 +11,14 @@ import {
   Circle,
   ChevronRight,
   Code,
+  RefreshCw,
 } from 'lucide-react'
 import clsx from 'clsx'
 import useUserStore from '@/stores/useUserStore'
 import useNotificationStore, { NOTIFICATION_EVENTS } from '@/stores/useNotificationStore'
 import api from '@/lib/api'
+import MagneticButton from '@/components/ui/MagneticButton'
+
 import {
   CREATURE_EMOJIS, RANK_MEDAL,
   containerVariants, cardVariants,
@@ -25,6 +29,7 @@ import {
 import { XpChart, AchievementBadges, ActivityHeatmap } from '@/components/shared/Charts'
 import { StreakCalendar, RankProgression } from '@/components/shared/StatsComponents'
 import { SkeletonBlock } from '@/components/ui/Skeletons'
+import RevisionCardWidget, { RevisionStatsCard, RevisionInsightsCard } from '@/components/revisions/RevisionCardWidget'
 
 
 
@@ -41,6 +46,10 @@ export default function DashboardPage() {
   const [leaderboardPeriod, setLeaderboardPeriod] = useState('weekly')
   const [leaderboardLoading, setLeaderboardLoading] = useState(true)
   const [currentUserRank, setCurrentUserRank] = useState(null)
+  const [revisions, setRevisions] = useState(null)
+  const [revisionsLoading, setRevisionsLoading] = useState(true)
+  const [insights, setInsights] = useState(null)
+  const [insightsLoading, setInsightsLoading] = useState(true)
 
   // Streak reminder notification
   const { notify } = useNotificationStore()
@@ -104,6 +113,38 @@ export default function DashboardPage() {
       }
     }
     loadStats()
+  }, [])
+
+  // Fetch today's revisions
+  useEffect(() => {
+    async function loadRevisions() {
+      setRevisionsLoading(true)
+      try {
+        const { data } = await api.get('/revisions/today')
+        setRevisions(data)
+      } catch {
+        setRevisions(null)
+      } finally {
+        setRevisionsLoading(false)
+      }
+    }
+    loadRevisions()
+  }, [])
+
+  // Fetch revision insights
+  useEffect(() => {
+    async function loadInsights() {
+      setInsightsLoading(true)
+      try {
+        const { data } = await api.get('/revisions/insights')
+        setInsights(data)
+      } catch {
+        setInsights(null)
+      } finally {
+        setInsightsLoading(false)
+      }
+    }
+    loadInsights()
   }, [])
 
   // Fetch leaderboard
@@ -335,99 +376,160 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ── Middle Row: Daily Quests + Continue Learning ──── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Daily Quests */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.35 }}
-          className="glass-card p-5"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-white font-semibold text-base">Daily Quests 🎯</h2>
-            <span className="text-xs text-slate-500">Resets at midnight</span>
-          </div>
+      {/* ── Today's Revisions ───────────────────────────── */}
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.15, duration: 0.35 }}
+        className="glass-card p-5"
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-white font-semibold text-base flex items-center gap-2">
+            <RefreshCw className="w-4 h-4 text-indigo-400" />
+            Today's Revisions
+          </h2>
+          {revisions && (
+            <Link
+              href="/revisions"
+              className="text-xs font-medium text-indigo-400 hover:text-indigo-300 transition-colors"
+            >
+              View all →
+            </Link>
+          )}
+        </div>
+
+        {revisionsLoading ? (
           <div className="space-y-3">
-            {dailyQuests.map(quest => (
-              <div
-                key={quest.id}
-                className={clsx(
-                  'flex items-center gap-3 p-3 rounded-lg border',
-                  quest.completed
-                    ? 'bg-emerald-900/10 border-emerald-700/20'
-                    : 'bg-dark-700 border-dark-500'
-                )}
-              >
-                {quest.completed ? (
-                  <Check className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                ) : (
-                  <Circle className="w-4 h-4 text-slate-500 flex-shrink-0" />
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className={clsx('text-sm font-medium', quest.completed ? 'line-through text-slate-500' : 'text-slate-200')}>
-                    {quest.label}
-                  </p>
-                  {quest.progress && !quest.completed && (
-                    <p className="text-xs text-slate-500 mt-0.5">{quest.progress}</p>
-                  )}
-                </div>
-                <span className="text-xs font-semibold text-indigo-400 bg-indigo-900/30 border border-indigo-700/30 px-2 py-0.5 rounded-full flex-shrink-0">
-                  +{quest.xpReward} XP
-                </span>
-              </div>
+            {[1, 2, 3].map(i => (
+              <div key={i} className="h-16 bg-dark-700/50 rounded-lg animate-pulse" />
             ))}
           </div>
-        </motion.div>
-
-        {/* Continue Learning */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.25, duration: 0.35 }}
-          className="glass-card p-5"
-        >
-          <h2 className="text-white font-semibold text-base mb-4">Continue Learning 📚</h2>
-          {attemptedProblems.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-28 text-center gap-2">
-              <p className="text-slate-500 text-sm">No problems attempted yet.</p>
-              <Link
-                to="/problems"
-                className="text-indigo-400 hover:text-indigo-300 text-sm font-medium transition-colors"
-              >
-                Start your journey →
-              </Link>
+        ) : !revisions || revisions.cards?.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-24 text-center gap-2 bg-dark-700/30 border border-dark-600/50 rounded-xl border-dashed">
+            <RefreshCw className="w-5 h-5 text-slate-600" />
+            <p className="text-xs text-slate-500">No revisions due today! Solve problems to build your revision queue.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {revisions.stats && <RevisionStatsCard stats={revisions.stats} />}
+            <div className="space-y-2 mt-3 max-h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-dark-500 pr-1">
+              {revisions.cards.slice(0, 5).map(card => (
+                <RevisionCardWidget
+                  key={card._id}
+                  card={card}
+                  onStart={(c) => {
+                    window.location.href = `/problems/${c.problem.slug}/solve?revision=${c._id}`
+                  }}
+                />
+              ))}
+              {revisions.cards.length > 5 && (
+                <p className="text-center text-xs text-slate-500 pt-1">
+                  +{revisions.cards.length - 5} more revisions due
+                </p>
+              )}
             </div>
-          ) : (
+          </div>
+        )}
+      </motion.div>
+
+      {/* ── Insights + Quests Row ──────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <RevisionInsightsCard insights={insights} loading={insightsLoading} />
+
+        <div className="space-y-6">
+          {/* Daily Quests */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2, duration: 0.35 }}
+            className="glass-card p-5"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-white font-semibold text-base">Daily Quests 🎯</h2>
+              <span className="text-xs text-slate-500">Resets at midnight</span>
+            </div>
             <div className="space-y-3">
-              {attemptedProblems.map(problem => (
+              {dailyQuests.map(quest => (
                 <div
-                  key={problem._id}
-                  className="flex items-center gap-3 p-3 bg-dark-700 border border-dark-500 rounded-lg"
+                  key={quest.id}
+                  className={clsx(
+                    'flex items-center gap-3 p-3 rounded-lg border',
+                    quest.completed
+                      ? 'bg-emerald-900/10 border-emerald-700/20'
+                      : 'bg-dark-700 border-dark-500'
+                  )}
                 >
+                  {quest.completed ? (
+                    <Check className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                  ) : (
+                    <Circle className="w-4 h-4 text-slate-500 flex-shrink-0" />
+                  )}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-200 truncate">{problem.title}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className={clsx('text-xs font-semibold px-1.5 py-0.5 rounded', difficultyStyle(problem.difficulty))}>
-                        {problem.difficulty}
-                      </span>
-                      <span className="text-xs text-indigo-400 flex items-center gap-0.5 font-mono">
-                        <Zap className="w-3 h-3" />
-                        {problem.xpReward} XP
-                      </span>
-                    </div>
+                    <p className={clsx('text-sm font-medium', quest.completed ? 'line-through text-slate-500' : 'text-slate-200')}>
+                      {quest.label}
+                    </p>
+                    {quest.progress && !quest.completed && (
+                      <p className="text-xs text-slate-500 mt-0.5">{quest.progress}</p>
+                    )}
                   </div>
-                  <Link
-                    to={`/problems/${problem.slug}/solve`}
-                    className="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-500 text-white transition-colors"
-                  >
-                    Continue
-                  </Link>
+                  <span className="text-xs font-semibold text-indigo-400 bg-indigo-900/30 border border-indigo-700/30 px-2 py-0.5 rounded-full flex-shrink-0">
+                    +{quest.xpReward} XP
+                  </span>
                 </div>
               ))}
             </div>
-          )}
-        </motion.div>
+          </motion.div>
+
+          {/* Continue Learning */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.25, duration: 0.35 }}
+            className="glass-card p-5"
+          >
+            <h2 className="text-white font-semibold text-base mb-4">Continue Learning 📚</h2>
+            {attemptedProblems.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-28 text-center gap-2">
+                <p className="text-slate-500 text-sm">No problems attempted yet.</p>
+                <MagneticButton
+                  as={Link}
+                  href="/problems"
+                  innerClassName="text-indigo-400 hover:text-indigo-300 text-sm font-medium transition-colors"
+                >
+                  Start your journey →
+                </MagneticButton>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {attemptedProblems.map(problem => (
+                  <div
+                    key={problem._id}
+                    className="flex items-center gap-3 p-3 bg-dark-700 border border-dark-500 rounded-lg"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-slate-200 truncate">{problem.title}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className={clsx('text-xs font-semibold px-1.5 py-0.5 rounded', difficultyStyle(problem.difficulty))}>
+                          {problem.difficulty}
+                        </span>
+                        <span className="text-xs text-indigo-400 flex items-center gap-0.5 font-mono">
+                          <Zap className="w-3 h-3" />
+                          {problem.xpReward} XP
+                        </span>
+                      </div>
+                    </div>
+                    <Link
+                      href={`/problems/${problem.slug}/solve`}
+                      className="flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-500 text-white transition-colors"
+                    >
+                      Continue
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        </div>
       </div>
 
       {/* ── Bottom Row: Submissions + Leaderboard ─────────── */}
@@ -589,12 +691,13 @@ export default function DashboardPage() {
             </div>
           )}
 
-          <Link
-            to="/contests"
-            className="mt-4 block text-center text-xs font-semibold text-indigo-400 hover:text-indigo-300 border border-indigo-700/30 rounded-lg py-2 transition-colors"
+          <MagneticButton
+            as={Link}
+            href="/contests"
+            innerClassName="mt-4 block text-center text-xs font-semibold text-indigo-400 hover:text-indigo-300 border border-indigo-700/30 rounded-lg py-2 transition-colors"
           >
             View Full Leaderboard
-          </Link>
+          </MagneticButton>
         </motion.div>
       </div>
     </div>

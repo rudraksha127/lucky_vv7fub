@@ -1,10 +1,12 @@
+"use client";
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { SlidersHorizontal, Check, Lock } from 'lucide-react'
 import clsx from 'clsx'
 import FilterBar from '../components/problems/FilterBar'
 import { SkeletonBlock } from '../components/ui/Skeletons'
+import JsonLd from '../components/seo/JsonLd'
 import useProblemStore from '../stores/useProblemStore'
 import useUserStore from '../stores/useUserStore'
 
@@ -99,7 +101,7 @@ function ProblemCard({ problem, isSolved, isLocked }) {
       {/* Top row */}
       <div className="flex items-start justify-between gap-2 mb-2">
         <Link
-          to={`/problems/${problem.slug}/solve`}
+          href={`/problems/${problem.slug}/solve`}
           className="text-sm font-semibold text-white hover:text-primary-400 transition-colors leading-snug"
         >
           {problem.title}
@@ -178,7 +180,11 @@ export default function ProblemsPage() {
   const sidebarProps = { statusFilter, setStatusFilter }
 
   return (
-    <div className="flex h-full">
+    <>
+      {/* Structured data: ItemList for problem listing */}
+      <JsonLd type="CollectionPage" items={problems} name="DSA Problems - AlgoZen" description="Browse our curated collection of DSA and RealWorld coding problems with AI guidance and interactive visualizations." />
+
+      <div className="flex h-full">
       {/* Desktop Sidebar */}
       <aside className="hidden lg:block w-64 shrink-0 sticky top-0 h-full overflow-y-auto bg-dark-800 border-r border-dark-600 p-4 space-y-6">
         <FilterSidebar {...sidebarProps} />
@@ -250,7 +256,7 @@ export default function ProblemsPage() {
                   </div>
                 </div>
                 <Link
-                  to={`/problems/${potd.slug}/solve`}
+                  href={`/problems/${potd.slug}/solve`}
                   className="shrink-0 inline-flex items-center gap-1 px-5 py-2.5 rounded-xl bg-gradient-to-r from-primary-600 to-accent-500 text-white text-sm font-semibold hover:opacity-90 transition-opacity"
                 >
                   Solve Now →
@@ -322,6 +328,7 @@ export default function ProblemsPage() {
         )}
       </main>
     </div>
+    </>
   )
 }
 

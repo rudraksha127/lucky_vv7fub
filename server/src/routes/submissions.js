@@ -2,9 +2,11 @@ import { Router } from 'express'
 import mongoose from 'mongoose'
 import Problem from '../models/Problem.js'
 import Submission from '../models/Submission.js'
+import RevisionCard from '../models/RevisionCard.js'
 import { requireAuth } from '../middleware/auth.js'
 import { submitCode } from '../services/judge0.js'
 import { awardXP, updateStreak } from '../services/xp.js'
+import { getInitialState } from '../services/spacedRepetition.js'
 import { io } from '../index.js'
 
 const VALID_LANGUAGES = ['cpp', 'java', 'python', 'javascript']
@@ -88,11 +90,23 @@ async function handleSubmit(req, res) {
     })
     const isFirstAccepted = allPassed && !previousAccepted
 
+    const safeContestId =
+      contestId && mongoose.isValidObjectId(contestId)
+        ? new mongoose.Types.ObjectId(contestId)
+        : null
+
+    // Determine XP before creating submission to avoid extra DB save
     let xpEarned = 0
+    let userXp = req.user.xp
+    let userLevel = req.user.level
+    let userRank = req.user.rank
     if (isFirstAccepted) {
       xpEarned = problem.xpReward
-      await awardXP(req.user._id, xpEarned)
+      const updatedUser = await awardXP(req.user._id, xpEarned)
       await updateStreak(req.user._id)
+      userXp = updatedUser?.xp ?? req.user.xp
+      userLevel = updatedUser?.level ?? req.user.level
+      userRank = updatedUser?.rank ?? req.user.rank
 
       // Track solved problem
       await req.user.updateOne({
@@ -105,19 +119,7 @@ async function handleSubmit(req, res) {
       })
     }
 
-    // Update problem stats
-    await Problem.findByIdAndUpdate(safeProblemId, {
-      $inc: {
-        totalSubmissions: 1,
-        ...(allPassed ? { totalAccepted: 1 } : {}),
-      },
-    })
-
-    const safeContestId =
-      contestId && mongoose.isValidObjectId(contestId)
-        ? new mongoose.Types.ObjectId(contestId)
-        : null
-
+    // Create submission with correct xpEarned already set
     const submission = await Submission.create({
       userId: req.user._id,
       problemId: safeProblemId,
@@ -132,6 +134,45 @@ async function handleSubmit(req, res) {
       isFirstAccepted,
     })
 
+    if (isFirstAccepted) {
+      // ─── Auto-create Revision Card on first AC ───────
+      const nextState = getInitialState('Accepted', avgRuntime, (problem.timeLimit || 5) * 1000)
+      await RevisionCard.findOneAndUpdate(
+        { userId: req.user._id, problemId: safeProblemId },
+        {
+          $setOnInsert: {
+            userId: req.user._id,
+            problemId: safeProblemId,
+            algorithm: 'FSRS',
+            stability: nextState.stability,
+            difficulty: nextState.difficulty,
+            dueDate: nextState.dueDate,
+            repetitions: 0,
+            lapses: 0,
+            lastInterval: nextState.interval,
+            lastVerdict: 'Accepted',
+            lastTimeTakenMs: Math.round(avgRuntime),
+            lastReviewedAt: new Date(),
+            sourceSubmissionId: submission._id,
+          },
+          $set: {
+            lastVerdict: 'Accepted',
+            lastTimeTakenMs: Math.round(avgRuntime),
+            lastReviewedAt: new Date(),
+          },
+        },
+        { upsert: true, new: true }
+      )
+    }
+
+    // Update problem stats
+    await Problem.findByIdAndUpdate(safeProblemId, {
+      $inc: {
+        totalSubmissions: 1,
+        ...(allPassed ? { totalAccepted: 1 } : {}),
+      },
+    })
+
     // Emit real-time result to user
     io.to(req.user._id.toString()).emit('submission-result', {
       submissionId: submission._id,
@@ -140,7 +181,12 @@ async function handleSubmit(req, res) {
       isFirstAccepted,
     })
 
-    res.status(201).json(submission)
+    res.status(201).json({
+      ...submission.toObject(),
+      userXp,
+      userLevel,
+      userRank,
+    })
   } catch (err) {
     res.status(500).json({ error: err.message })
   }

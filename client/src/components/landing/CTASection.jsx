@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Zap } from 'lucide-react';
+import MagneticButton from '../ui/MagneticButton';
 
 const AVATAR_COLORS = [
   'bg-primary-600',
@@ -111,13 +112,14 @@ export default function CTASection() {
           transition={{ duration: 0.5, delay: 0.3 }}
           className="mb-6"
         >
-          <Link
+          <MagneticButton
+            as={Link}
             to="/sign-up"
-            className="inline-flex items-center gap-3 btn-primary py-4 px-10 text-lg shadow-2xl shadow-primary-500/30 hover:shadow-primary-500/50"
+            innerClassName="inline-flex items-center gap-3 btn-primary py-4 px-10 text-lg shadow-2xl shadow-primary-500/30 hover:shadow-primary-500/50"
           >
             <Zap className="w-5 h-5" />
             Start Free — No Credit Card
-          </Link>
+          </MagneticButton>
         </motion.div>
 
         {/* Fine print */}

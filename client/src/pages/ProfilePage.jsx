@@ -6,7 +6,7 @@ import { Link } from 'react-router-dom'
 import {
   CheckCircle, Activity, Calendar,
   ChevronRight, Code, Star,
-  Target,
+  Target, Award, ExternalLink,
 } from 'lucide-react'
 
 import useUserStore from '../stores/useUserStore'
@@ -464,6 +464,32 @@ export default function ProfilePage() {
               <AchievementBadges stats={stats} />
               <DifficultyChart byDifficulty={stats?.byDifficulty} />
               <EvolutionPath stage={stage} level={level} />
+            </motion.div>
+
+            {/* Certificates Card — Full width row */}
+            <motion.div variants={profileContainerVariants}>
+              <motion.div variants={cardVariants} className="bg-gradient-to-r from-amber-900/10 via-dark-800 to-orange-900/10 border border-amber-500/20 rounded-2xl p-5">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-500/10 border border-amber-500/30 flex items-center justify-center">
+                      <Award className="w-6 h-6 text-amber-400" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-semibold text-white">Certificates & Achievements</h3>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        Earn certificates for completing DSA & Real World tracks
+                      </p>
+                    </div>
+                  </div>
+                  <Link
+                    to="/certificates"
+                    className="flex items-center gap-1.5 text-xs font-semibold text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 px-4 py-2 rounded-lg transition-all shrink-0"
+                  >
+                    View Certificates
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+              </motion.div>
             </motion.div>
 
             {/* Activity Heatmap + Recent Submissions + Topic Progress */}

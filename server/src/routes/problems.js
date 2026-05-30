@@ -122,7 +122,7 @@ router.put('/:id', requireAuth, adminOnly, async (req, res) => {
       title, slug, description, track, topic, difficulty,
       levelRequired, xpReward, constraints, examples, testCases,
       hints, editorialLink, source, sourceId, isActive, isPOTD,
-      supportedLanguages, starterCode,
+      supportedLanguages, starterCode, patternId,
     } = req.body
     const updates = {
       ...(title !== undefined && { title }),
@@ -144,6 +144,7 @@ router.put('/:id', requireAuth, adminOnly, async (req, res) => {
       ...(isPOTD !== undefined && { isPOTD }),
       ...(supportedLanguages !== undefined && { supportedLanguages }),
       ...(starterCode !== undefined && { starterCode }),
+      ...(patternId !== undefined && { patternId }),
     }
 
     const problem = await Problem.findByIdAndUpdate(safeId, updates, {

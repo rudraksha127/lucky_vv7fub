@@ -7,11 +7,21 @@ import app from './app.js'
 dotenv.config()
 
 const server = createServer(app)
-export const io = new Server(server, {
-  cors: { origin: process.env.CLIENT_URL, credentials: true }
-})
+let io
+
+try {
+  io = new Server(server, {
+    cors: { origin: process.env.CLIENT_URL, credentials: true }
+  })
+} catch (err) {
+  // Fallback for environments where Socket.io fails (e.g., serverless)
+  console.warn('⚠️ Socket.io not available:', err.message)
+}
+
+export { io }
 
 // ─── Socket.io (Battle Mode + Live Leaderboard) ──────────
+if (io) {
 io.on('connection', (socket) => {
   console.log(`⚡ User connected: ${socket.id}`)
 
@@ -61,6 +71,29 @@ io.on('connection', (socket) => {
     console.log(`💤 User disconnected: ${socket.id}`)
   })
 })
+}
+
+// ─── Socket.io Emit Helpers ────────────────────────────────
+// Import these from route handlers to emit events to rooms
+export const emitToContest = (contestId, event, data) => {
+  if (!io) return
+  io.to(`contest-${contestId}`).emit(event, data)
+}
+
+export const emitToBattle = (roomCode, event, data) => {
+  if (!io) return
+  io.to(`battle-${roomCode}`).emit(event, data)
+}
+
+export const emitToUser = (userId, event, data) => {
+  if (!io) return
+  io.to(userId).emit(event, data)
+}
+
+export const emitToAll = (event, data) => {
+  if (!io) return
+  io.emit(event, data)
+}
 
 // ─── MongoDB Connection ───────────────────────────────────
 const PORT = process.env.PORT || 5000

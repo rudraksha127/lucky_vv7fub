@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Zap, Menu, X } from 'lucide-react';
+import MagneticButton from '../ui/MagneticButton';
 
 const navLinks = [
   { label: 'Features', href: '#features' },
@@ -69,9 +70,9 @@ export default function Navbar() {
           >
             Sign In
           </Link>
-          <Link to="/sign-up" className="btn-primary text-sm">
+          <MagneticButton as={Link} to="/sign-up" innerClassName="btn-primary text-sm">
             Start Free
-          </Link>
+          </MagneticButton>
         </div>
 
         {/* Mobile Hamburger */}
@@ -113,13 +114,14 @@ export default function Navbar() {
                 >
                   Sign In
                 </Link>
-                <Link
+                <MagneticButton
+                  as={Link}
                   to="/sign-up"
+                  innerClassName="btn-primary text-center text-sm"
                   onClick={() => setMobileOpen(false)}
-                  className="btn-primary text-center text-sm"
                 >
                   Start Free
-                </Link>
+                </MagneticButton>
               </div>
             </div>
           </motion.div>

@@ -11,6 +11,8 @@ server/node_modules/
 # Build
 client/dist/
 server/dist/
+client/.next/
+client/out/
 
 # Logs
 *.log

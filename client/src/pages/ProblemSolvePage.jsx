@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
+import JsonLd from '@/components/seo/JsonLd'
 import Editor from '@monaco-editor/react'
 import {
   ArrowLeft,
@@ -17,6 +18,7 @@ import {
   Lightbulb,
   MessageSquare,
   Eye,
+  GitBranch,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import clsx from 'clsx'
@@ -30,8 +32,12 @@ import {
   AiAskTab,
   AiReviewTab,
 } from '@/components/ai/AiComponents'
+import VisualizationPanel from '@/components/visualizer/VisualizationPanel'
 import useProblemStore from '@/stores/useProblemStore'
 import useUserStore from '@/stores/useUserStore'
+import LevelUpModal from '@/components/ui/LevelUpModal'
+import XPFloatAnimation from '@/components/ui/XPFloatAnimation'
+import { getLevel } from '@/lib/utils'
 import api from '@/lib/api'
 
 const MONACO_LANG_MAP = {
@@ -59,8 +65,10 @@ function getVerdictStyle(verdict) {
 
 export default function ProblemSolvePage() {
   const { slug } = useParams()
+  const [searchParams] = useSearchParams()
+  const revisionId = searchParams.get('revision') // Revision mode
   const { currentProblem: problem, loading, fetchProblem } = useProblemStore()
-  const { updateXP } = useUserStore()
+  const { updateXP, fetchUser } = useUserStore()
 
   const [code, setCode] = useState('')
   const [language, setLanguage] = useState('python')
@@ -70,6 +78,9 @@ export default function ProblemSolvePage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [activeTab, setActiveTab] = useState('description')
   const [bottomPanelOpen, setBottomPanelOpen] = useState(false)
+  const [bottomPanelTab, setBottomPanelTab] = useState('results')
+  const [visualizerOpen, setVisualizerOpen] = useState(false)
+  const [visualizerInput, setVisualizerInput] = useState('')
   const [aiOpen, setAiOpen] = useState(false)
   const [revealedHints, setRevealedHints] = useState(0)
   const [aiTab, setAiTab] = useState('hints')
@@ -81,6 +92,10 @@ export default function ProblemSolvePage() {
   const [hintTier, setHintTier] = useState(2)
   const [aiResult, setAiResult] = useState(null) // Full HITL response with confidence, evidence, humanAction
   const [feedbackGiven, setFeedbackGiven] = useState(null) // 'helpful' | 'unhelpful' | null
+  const [showLevelUp, setShowLevelUp] = useState(false)
+  const [levelUpData, setLevelUpData] = useState({ prevLevel: 1, newLevel: 2, xpGained: 0 })
+  const [submissionCount, setSubmissionCount] = useState(0)
+  const [lastXpAmount, setLastXpAmount] = useState(0)
 
   // Track which problem we last initialized state for to enable
   // "update state during render" pattern (React-idiomatic derived state)
@@ -123,6 +138,11 @@ export default function ProblemSolvePage() {
       setRunResults(data.results ?? [])
       setSubmitResult(null)
       setBottomPanelOpen(true)
+      setBottomPanelTab('results')
+      // Auto-populate visualizer with first test case input
+      if (data.results?.[0]?.input) {
+        setVisualizerInput(data.results[0].input)
+      }
     } catch (err) {
       toast.error(err?.response?.data?.message ?? 'Run failed. Please try again.')
     } finally {
@@ -132,6 +152,10 @@ export default function ProblemSolvePage() {
 
   const handleSubmit = useCallback(async () => {
     if (!problem || isSubmitting) return
+
+    // Capture current level BEFORE the submission (for level-up detection)
+    const prevLevel = getLevel(useUserStore.getState().user?.xp ?? 0)
+
     setIsSubmitting(true)
     try {
       const { data } = await api.post('/submissions/submit', {
@@ -142,18 +166,68 @@ export default function ProblemSolvePage() {
       setSubmitResult(data)
       setRunResults(null)
       setBottomPanelOpen(true)
+      setBottomPanelTab('results')
+
+      // ─── Revision mode: update revision card ────────
+      if (revisionId && data.status === 'Accepted') {
+        try {
+          await api.post(`/revisions/${revisionId}/result`, {
+            verdict: data.status,
+            timeTakenMs: data.runtime || 0,
+          })
+        } catch {
+          // Silent fail — revision update is non-critical
+        }
+      }
+
       if (data.status === 'Accepted') {
-        toast.success(
-          data.xpEarned
-            ? `✅ Accepted! +${data.xpEarned} XP`
-            : '✅ Accepted!'
-        )
-        if (data.xpEarned && data.submission) {
+        // ─── XP Float Animation Trigger ────────────────
+        if (data.xpEarned) {
+          setLastXpAmount(data.xpEarned)
+          setSubmissionCount((c) => c + 1)
+        }
+
+        // ─── XP & Level-Up Handling ─────────────────────
+        if (data.xpEarned) {
+          const newLevel = data.userLevel ?? prevLevel
+
+          // Detect level-up
+          if (newLevel > prevLevel) {
+            setLevelUpData({
+              prevLevel,
+              newLevel,
+              xpGained: data.xpEarned,
+            })
+            setShowLevelUp(true)
+          }
+
+          // Update zustand store
           updateXP(
-            data.submission.xp ?? 0,
-            data.submission.level ?? 1,
-            data.submission.rank ?? 'Rookie'
+            data.userXp ?? 0,
+            newLevel,
+            data.userRank ?? 'Rookie'
           )
+
+          // Refetch user data to keep dashboard/profile in sync
+          fetchUser()
+
+          // XP toast with animation
+          toast.custom((t) => (
+            <motion.div
+              initial={{ opacity: 0, y: 40, scale: 0.8 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -20, scale: 0.8 }}
+              className="bg-dark-800 border border-primary-500/30 rounded-xl px-5 py-3 shadow-2xl shadow-primary-500/20 flex items-center gap-3"
+            >
+              <span className="text-2xl">✅</span>
+              <div>
+                <p className="text-white font-bold text-sm">Accepted!</p>
+                <p className="text-primary-400 text-xs font-semibold">+{data.xpEarned} XP ✨</p>
+              </div>
+            </motion.div>
+          ), { duration: 3500 })
+        } else {
+          toast.success('✅ Accepted!')
         }
       } else {
         toast.error(data.status ?? 'Submission failed')
@@ -163,7 +237,7 @@ export default function ProblemSolvePage() {
     } finally {
       setIsSubmitting(false)
     }
-  }, [problem, code, language, isSubmitting, updateXP])
+  }, [problem, code, language, isSubmitting, updateXP, fetchUser])
 
   useEffect(() => {
     runFnRef.current = handleRun
@@ -297,6 +371,25 @@ export default function ProblemSolvePage() {
     }
   }
 
+  // ─── Structured Data (JSON-LD) for this problem ────────
+  const learningResourceProps = problem ? {
+    name: problem.title,
+    description: problem.description,
+    difficulty: problem.difficulty,
+    topic: problem.topic,
+    slug: problem.slug,
+    constraints: problem.constraints,
+    examples: problem.examples,
+    hints: problem.hints,
+    timeRequired: problem.difficulty === 'Rookie' ? 'PT15M' : problem.difficulty === 'Warrior' ? 'PT30M' : 'PT45M',
+    acceptanceRate: problem.totalSubmissions > 0
+      ? Math.round((problem.totalAccepted / problem.totalSubmissions) * 100)
+      : undefined,
+    totalSubmissions: problem.totalSubmissions,
+    learningResourceType: 'Algorithm Practice Problem',
+    keywords: [problem.topic, problem.difficulty, 'DSA', 'coding', 'algorithms', 'AlgoZen'].filter(Boolean),
+  } : null
+
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-dark-900">
@@ -324,7 +417,13 @@ export default function ProblemSolvePage() {
   const totalCount = runResults ? runResults.length : 0
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-dark-900">
+    <>
+      {/* Structured data for search engines */}
+      {learningResourceProps && (
+        <JsonLd type="LearningResource" {...learningResourceProps} />
+      )}
+
+      <div className="flex flex-col h-screen overflow-hidden bg-dark-900">
       {/* ── Top Bar ─────────────────────────────────────────────── */}
       <header className="flex items-center justify-between border-b border-dark-600 bg-dark-800 px-4 py-2 flex-shrink-0 h-14 gap-3">
         {/* Left */}
@@ -367,6 +466,30 @@ export default function ProblemSolvePage() {
 
         {/* Right */}
         <div className="flex items-center gap-2 flex-shrink-0">
+          <button
+            onClick={() => {
+              const willOpen = !visualizerOpen
+              setVisualizerOpen(willOpen)
+              if (willOpen) {
+                setBottomPanelOpen(true)
+                setBottomPanelTab('visualize')
+                // Auto-populate from first example when opening
+                if (!visualizerInput && problem.examples?.[0]?.input) {
+                  setVisualizerInput(problem.examples[0].input)
+                }
+              }
+            }}
+            className={clsx(
+              'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-all',
+              visualizerOpen
+                ? 'bg-primary-600 text-white'
+                : 'bg-dark-700 text-slate-300 border border-dark-500 hover:bg-dark-600 hover:text-white'
+            )}
+            title="Algorithm Visualizer"
+          >
+            <GitBranch className="h-4 w-4" />
+            <span className="hidden sm:inline">Visualize</span>
+          </button>
           <button
             onClick={handleRun}
             disabled={isRunning || isSubmitting}
@@ -584,148 +707,195 @@ export default function ProblemSolvePage() {
         {/* Panel Header */}
         <div className="flex h-10 items-center justify-between border-b border-dark-600 px-4">
           <div className="flex items-center gap-3">
-            <span className="text-sm font-medium text-slate-300">
-              {submitResult
-                ? 'Submit Result'
-                : runResults
-                ? `Test Cases: ${passCount}/${totalCount} passed`
-                : 'Test Results'}
-            </span>
-            {runResults && (
-              <span
-                className={clsx(
-                  'rounded-full px-2 py-0.5 text-xs font-medium',
+            {/* Results tab */}
+            <button
+              onClick={() => setBottomPanelTab('results')}
+              className={clsx(
+                'text-sm font-medium transition-colors',
+                bottomPanelTab === 'results'
+                  ? 'text-white border-b-2 border-primary-500'
+                  : 'text-slate-500 hover:text-white'
+              )}
+            >
+              Results
+              {submitResult && (
+                <span className={clsx('ml-1.5 text-xs', getVerdictStyle(submitResult.status))}>
+                  {submitResult.status}
+                </span>
+              )}
+              {runResults && !submitResult && (
+                <span className={clsx(
+                  'ml-1.5 text-xs font-medium',
                   passCount === totalCount && totalCount > 0
-                    ? 'bg-emerald-500/20 text-emerald-400'
-                    : 'bg-red-500/20 text-red-400'
-                )}
-              >
-                {passCount === totalCount && totalCount > 0 ? 'All Passed' : 'Some Failed'}
-              </span>
-            )}
-            {submitResult && (
-              <span
-                className={clsx(
-                  'rounded-full px-2 py-0.5 text-xs font-medium',
-                  getVerdictStyle(submitResult.status)
-                )}
-              >
-                {submitResult.status}
-              </span>
-            )}
+                    ? 'text-emerald-400'
+                    : 'text-red-400'
+                )}>
+                  {passCount}/{totalCount}
+                </span>
+              )}
+            </button>
+
+            {/* Visualize tab */}
+            <button
+              onClick={() => setBottomPanelTab('visualize')}
+              className={clsx(
+                'flex items-center gap-1 text-sm font-medium transition-colors',
+                bottomPanelTab === 'visualize'
+                  ? 'text-white border-b-2 border-primary-500'
+                  : 'text-slate-500 hover:text-white'
+              )}
+            >
+              <GitBranch className="w-3.5 h-3.5" />
+              Visualize
+            </button>
           </div>
-          <button
-            onClick={() => setBottomPanelOpen((v) => !v)}
-            className="text-slate-400 hover:text-white transition-colors"
-          >
-            {bottomPanelOpen ? (
-              <ChevronDown className="h-4 w-4" />
-            ) : (
-              <ChevronUp className="h-4 w-4" />
+
+          <div className="flex items-center gap-2">
+            {bottomPanelTab === 'visualize' && (
+              <span className="text-[10px] text-slate-500">Step through algorithms</span>
             )}
-          </button>
+            <button
+              onClick={() => setBottomPanelOpen((v) => !v)}
+              className="text-slate-400 hover:text-white transition-colors"
+            >
+              {bottomPanelOpen ? (
+                <ChevronDown className="h-4 w-4" />
+              ) : (
+                <ChevronUp className="h-4 w-4" />
+              )}
+            </button>
+          </div>
         </div>
 
         {/* Panel Body */}
         {bottomPanelOpen && (
-          <div className="h-[calc(100%-2.5rem)] overflow-y-auto p-3 space-y-2">
-            {submitResult && (
-              <div
-                className={clsx(
-                  'rounded-lg p-3 text-sm font-medium',
-                  getVerdictStyle(submitResult.status)
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  {submitResult.status === 'Accepted' ? (
-                    <CheckCircle className="h-4 w-4" />
-                  ) : (
-                    <XCircle className="h-4 w-4" />
-                  )}
-                  <span>{submitResult.status}</span>
-                  {submitResult.xpEarned > 0 && (
-                    <span className="ml-auto text-emerald-400 font-semibold">
-                      +{submitResult.xpEarned} XP
-                    </span>
-                  )}
-                </div>
-                {submitResult.message && (
-                  <p className="mt-1 text-xs opacity-80">{submitResult.message}</p>
-                )}
-              </div>
-            )}
-
-            {runResults && runResults.length > 0 && (
-              <div className="space-y-2">
-                {runResults.map((result, idx) => (
+          <div className="h-[calc(100%-2.5rem)] overflow-hidden">
+            {bottomPanelTab === 'results' && (
+              <div className="h-full overflow-y-auto p-3 space-y-2">
+                {submitResult && (
                   <div
-                    key={idx}
                     className={clsx(
-                      'rounded-lg border p-3 text-xs',
-                      result.passed
-                        ? 'border-emerald-500/30 bg-emerald-500/10'
-                        : 'border-red-500/30 bg-red-500/10'
+                      'rounded-lg p-3 text-sm font-medium',
+                      getVerdictStyle(submitResult.status)
                     )}
                   >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="font-medium text-slate-200">
-                        Test Case {idx + 1}
-                      </span>
-                      <div className="flex items-center gap-1.5">
-                        {result.runtime && (
-                          <span className="flex items-center gap-1 text-slate-400">
-                            <Clock className="h-3 w-3" />
-                            {result.runtime}
-                          </span>
-                        )}
-                        {result.passed ? (
-                          <CheckCircle className="h-4 w-4 text-emerald-400" />
-                        ) : (
-                          <XCircle className="h-4 w-4 text-red-400" />
-                        )}
-                      </div>
+                    <div className="flex items-center gap-2">
+                      {submitResult.status === 'Accepted' ? (
+                        <CheckCircle className="h-4 w-4" />
+                      ) : (
+                        <XCircle className="h-4 w-4" />
+                      )}
+                      <span>{submitResult.status}</span>
+                      {submitResult.xpEarned > 0 && (
+                        <span className="ml-auto text-emerald-400 font-semibold">
+                          +{submitResult.xpEarned} XP
+                        </span>
+                      )}
                     </div>
-                    <div className="grid grid-cols-3 gap-2">
-                      <div>
-                        <p className="text-slate-500 uppercase font-medium mb-1">Input</p>
-                        <pre className="rounded bg-dark-900 p-1.5 text-slate-300 overflow-x-auto whitespace-pre-wrap break-all">
-                          {result.input ?? '—'}
-                        </pre>
-                      </div>
-                      <div>
-                        <p className="text-slate-500 uppercase font-medium mb-1">Expected</p>
-                        <pre className="rounded bg-dark-900 p-1.5 text-slate-300 overflow-x-auto whitespace-pre-wrap break-all">
-                          {result.expected ?? '—'}
-                        </pre>
-                      </div>
-                      <div>
-                        <p className="text-slate-500 uppercase font-medium mb-1">Got</p>
-                        <pre
-                          className={clsx(
-                            'rounded p-1.5 overflow-x-auto whitespace-pre-wrap break-all',
-                            result.passed
-                              ? 'bg-dark-900 text-emerald-300'
-                              : 'bg-dark-900 text-red-300'
-                          )}
-                        >
-                          {result.got ?? '—'}
-                        </pre>
-                      </div>
-                    </div>
+                    {submitResult.message && (
+                      <p className="mt-1 text-xs opacity-80">{submitResult.message}</p>
+                    )}
                   </div>
-                ))}
+                )}
+
+                {runResults && runResults.length > 0 && (
+                  <div className="space-y-2">
+                    {runResults.map((result, idx) => (
+                      <div
+                        key={idx}
+                        className={clsx(
+                          'rounded-lg border p-3 text-xs',
+                          result.passed
+                            ? 'border-emerald-500/30 bg-emerald-500/10'
+                            : 'border-red-500/30 bg-red-500/10'
+                        )}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-medium text-slate-200">
+                            Test Case {idx + 1}
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            {result.runtime && (
+                              <span className="flex items-center gap-1 text-slate-400">
+                                <Clock className="h-3 w-3" />
+                                {result.runtime}
+                              </span>
+                            )}
+                            {result.passed ? (
+                              <CheckCircle className="h-4 w-4 text-emerald-400" />
+                            ) : (
+                              <XCircle className="h-4 w-4 text-red-400" />
+                            )}
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div>
+                            <p className="text-slate-500 uppercase font-medium mb-1">Input</p>
+                            <pre className="rounded bg-dark-900 p-1.5 text-slate-300 overflow-x-auto whitespace-pre-wrap break-all">
+                              {result.input ?? '—'}
+                            </pre>
+                          </div>
+                          <div>
+                            <p className="text-slate-500 uppercase font-medium mb-1">Expected</p>
+                            <pre className="rounded bg-dark-900 p-1.5 text-slate-300 overflow-x-auto whitespace-pre-wrap break-all">
+                              {result.expected ?? '—'}
+                            </pre>
+                          </div>
+                          <div>
+                            <p className="text-slate-500 uppercase font-medium mb-1">Got</p>
+                            <pre
+                              className={clsx(
+                                'rounded p-1.5 overflow-x-auto whitespace-pre-wrap break-all',
+                                result.passed
+                                  ? 'bg-dark-900 text-emerald-300'
+                                  : 'bg-dark-900 text-red-300'
+                              )}
+                            >
+                              {result.got ?? '—'}
+                            </pre>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {!runResults && !submitResult && (
+                  <p className="text-slate-500 text-sm text-center py-4">
+                    Run your code to see results here.
+                  </p>
+                )}
               </div>
             )}
 
-            {!runResults && !submitResult && (
-              <p className="text-slate-500 text-sm text-center py-4">
-                Run your code to see results here.
-              </p>
+            {bottomPanelTab === 'visualize' && (
+              <div className="h-full">
+                <VisualizationPanel
+                  problem={problem}
+                  code={code}
+                  language={language}
+                  testInput={visualizerInput}
+                />
+              </div>
             )}
           </div>
         )}
       </div>
-    </div>
+
+      </div>
+
+      {/* ── XP Float Animation ────────────────────────── */}
+      <XPFloatAnimation trigger={submissionCount} xpAmount={lastXpAmount} />
+
+      {/* ── LevelUp Modal ──────────────────────────────── */}
+      <LevelUpModal
+        isOpen={showLevelUp}
+        onClose={() => setShowLevelUp(false)}
+        prevLevel={levelUpData.prevLevel}
+        newLevel={levelUpData.newLevel}
+        xpGained={levelUpData.xpGained}
+      />
+    </>
   )
 }
 

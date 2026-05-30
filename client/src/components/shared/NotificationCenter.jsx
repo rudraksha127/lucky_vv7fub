@@ -15,6 +15,7 @@ import {
   Info,
 } from 'lucide-react'
 import clsx from 'clsx'
+import Tooltip from '../ui/Tooltip'
 import useNotificationStore, { NOTIFICATION_EVENTS } from '@/stores/useNotificationStore'
 
 const NOTIFICATION_ICONS = {
@@ -55,9 +56,10 @@ export default function NotificationCenter() {
     requestBrowserPermission,
     notificationSound,
     toggleSound,
+    notificationCenterOpen,
+    setNotificationCenterOpen,
   } = useNotificationStore()
 
-  const [isOpen, setIsOpen] = useState(false)
   const [showPermissionPrompt, setShowPermissionPrompt] = useState(false)
   const dropdownRef = useRef(null)
   const bellRef = useRef(null)
@@ -71,12 +73,12 @@ export default function NotificationCenter() {
         bellRef.current &&
         !bellRef.current.contains(e.target)
       ) {
-        setIsOpen(false)
+        setNotificationCenterOpen(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
+  }, [setNotificationCenterOpen])
 
   // Show permission prompt if not yet decided
   useEffect(() => {
@@ -86,6 +88,8 @@ export default function NotificationCenter() {
       return () => clearTimeout(timer)
     }
   }, [browserPermission])
+
+  const toggleDropdown = () => setNotificationCenterOpen(!notificationCenterOpen)
 
   const handlePermissionRequest = async () => {
     const result = await requestBrowserPermission()
@@ -106,35 +110,48 @@ export default function NotificationCenter() {
     if (notification.actionUrl) {
       // React Router navigation happens via Link, so this is handled by the Link wrapper
     }
-    setIsOpen(false)
+    setNotificationCenterOpen(false)
   }
 
   return (
     <div className="relative">
       {/* Bell Button */}
-      <button
-        ref={bellRef}
-        onClick={() => setIsOpen((v) => !v)}
-        className="relative rounded-full p-2 text-slate-400 hover:text-white hover:bg-dark-700 transition-colors"
-        title="Notifications"
-        aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
-      >
-        {unreadCount > 0 ? (
-          <>
-            <Bell className="h-5 w-5" />
+      <Tooltip label="Notifications">
+        <button
+          ref={bellRef}
+          onClick={toggleDropdown}
+          className="relative rounded-full p-2 text-slate-400 hover:text-white hover:bg-dark-700 transition-colors"
+          aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
+        >
+          {unreadCount > 0 ? (
+            <>
+              <motion.span
+                className="flex items-center justify-center"
+                whileHover={{ rotate: [0, -15, 15, -10, 10, -5, 5, 0] }}
+                transition={{ duration: 0.5, ease: 'easeInOut' }}
+              >
+                <Bell className="h-5 w-5" />
+              </motion.span>
+              <motion.span
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                className="absolute -top-0.5 -right-0.5 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white"
+                style={{ minWidth: '18px', minHeight: '18px' }}
+              >
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </motion.span>
+            </>
+          ) : (
             <motion.span
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              className="absolute -top-0.5 -right-0.5 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white"
-              style={{ minWidth: '18px', minHeight: '18px' }}
+              className="flex items-center justify-center"
+              whileHover={{ rotate: [0, -15, 15, -10, 10, -5, 5, 0] }}
+              transition={{ duration: 0.5, ease: 'easeInOut' }}
             >
-              {unreadCount > 99 ? '99+' : unreadCount}
+              <BellOff className="h-5 w-5" />
             </motion.span>
-          </>
-        ) : (
-          <BellOff className="h-5 w-5" />
-        )}
-      </button>
+          )}
+        </button>
+      </Tooltip>
 
       {/* Permission Prompt Tooltip */}
       <AnimatePresence>
@@ -183,7 +200,7 @@ export default function NotificationCenter() {
 
       {/* Dropdown */}
       <AnimatePresence>
-        {isOpen && (
+        {notificationCenterOpen && (
           <motion.div
             ref={dropdownRef}
             initial={{ opacity: 0, y: 8, scale: 0.95 }}
@@ -295,7 +312,7 @@ export default function NotificationCenter() {
                 <div className="flex items-center justify-between">
                   <Link
                     to="/profile"
-                    onClick={() => setIsOpen(false)}
+                    onClick={() => setNotificationCenterOpen(false)}
                     className="text-xs text-slate-400 hover:text-primary-400 transition-colors"
                   >
                     Notification Settings

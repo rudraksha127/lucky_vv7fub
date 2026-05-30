@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Play, Trophy, CheckCircle } from 'lucide-react';
+import MagneticButton from '../ui/MagneticButton';
+import HeroIslandWrapper from './HeroIslandWrapper';
 
 const TYPEWRITER_WORDS = ['Legendary', 'Interview-Ready', 'Contest-Winner', 'Unstoppable'];
 
@@ -163,6 +165,9 @@ export default function HeroSection() {
         />
       ))}
 
+      {/* 3D Algorithm Island — immersive background (mid/high tier only) */}
+      <HeroIslandWrapper />
+
       {/* Grid pattern overlay */}
       <div
         className="absolute inset-0 opacity-5 pointer-events-none"
@@ -222,16 +227,19 @@ export default function HeroSection() {
 
             {/* CTAs */}
             <motion.div variants={itemVariants} className="flex flex-wrap gap-4 mb-8">
-              <Link
+              <MagneticButton
+                as={Link}
                 to="/sign-up"
-                className="btn-primary py-3 px-8 text-base flex items-center gap-2"
+                innerClassName="btn-primary py-3 px-8 text-base flex items-center gap-2"
               >
                 Start Your Journey →
-              </Link>
-              <button className="btn-secondary py-3 px-8 text-base flex items-center gap-2">
+              </MagneticButton>
+              <MagneticButton
+                innerClassName="btn-secondary py-3 px-8 text-base flex items-center gap-2"
+              >
                 <Play className="w-4 h-4 fill-current" />
                 Watch Demo
-              </button>
+              </MagneticButton>
             </motion.div>
 
             {/* Stats */}

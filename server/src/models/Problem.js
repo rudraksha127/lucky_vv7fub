@@ -63,6 +63,13 @@ const problemSchema = new mongoose.Schema({
   isActive:         { type: Boolean, default: true },
   isPOTD:           { type: Boolean, default: false },
 
+  // ─── Visualizer Pattern Mapping ──────────────────────
+  patternId: {
+    type: String,
+    default: '',
+    description: 'Maps to a visualizer pattern ID from patternsData.js (e.g., "maxSubarraySum", "twoSumHash")'
+  },
+
   // ─── Supported Languages ─────────────────────────────
   supportedLanguages: {
     type: [String],

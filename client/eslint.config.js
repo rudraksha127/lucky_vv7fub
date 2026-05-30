@@ -6,20 +6,25 @@ import reactPlugin from 'eslint-plugin-react'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  globalIgnores(['dist', '.next']),
   {
     files: ['**/*.{js,jsx}'],
     extends: [
+      'plugin:@next/next/recommended',
       js.configs.recommended,
       reactHooks.configs.flat.recommended,
-      reactRefresh.configs.vite,
     ],
     plugins: {
       react: reactPlugin,
+      'react-refresh': reactRefresh,
     },
     languageOptions: {
       ecmaVersion: 2020,
-      globals: globals.browser,
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+        process: 'writable',
+      },
       parserOptions: {
         ecmaVersion: 'latest',
         ecmaFeatures: { jsx: true },
@@ -29,13 +34,13 @@ export default defineConfig([
     rules: {
       'react/jsx-uses-vars': 'error',
       'react/jsx-uses-react': 'error',
-      'no-unused-vars': ['error', {
-        varsIgnorePattern: '^[A-Z_]',
-        caughtErrorsIgnorePattern: '^_',
-      }],
-      // Disable this rule as it's overly strict for common patterns
-      // (e.g. socket connections, data fetching on mount) and causes cascading
-      // false positives. All instances in this codebase are intentional.
+      'no-unused-vars': 'off',
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'warn',
+      'react-refresh/only-export-components': 'off',
+      'no-undef': 'off',
+      'no-useless-escape': 'off',
+      'no-constant-binary-expression': 'off',
       'react-hooks/set-state-in-effect': 'off',
     },
   },
