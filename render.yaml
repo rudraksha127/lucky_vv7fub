@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: algozen-api
+    env: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: MONGODB_URI
+        sync: true
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ADMIN_KEY
+        generateValue: true
+      - key: CLIENT_URL
+        sync: true
+      - key: GROQ_API_KEY
+        sync: true
+      - key: CLERK_SECRET_KEY
+        sync: true
