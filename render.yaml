@@ -1,4 +1,8 @@
 services:
+  # Frontend - Static site hosted on Vercel (see vercel.json)
+  # Deploy frontend: cd algozen && vercel --prod
+  
+  # Backend API
   - type: web
     name: algozen-api
     env: node
