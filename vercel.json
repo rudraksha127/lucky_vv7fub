@@ -1,0 +1,14 @@
+{
+    "version": 2,
+    "buildCommand": "cd client && npm install && npm run build",
+    "outputDirectory": "client/.next",
+    "devCommand": "cd client && npm run dev",
+    "installCommand": "cd client && npm install",
+    "framework": "nextjs",
+    "regions": [
+        "sin1"
+    ],
+    "env": {
+        "NODE_ENV": "production"
+    }
+}
