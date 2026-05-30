@@ -1,0 +1,122 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    background-color: #0a0a0f;
+    color: #e2e8f0;
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Outfit', sans-serif;
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: rgba(17, 17, 24, 0.5);
+    backdrop-filter: blur(8px);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(99, 102, 241, 0.5);
+    border-radius: 4px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(99, 102, 241, 0.8);
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+}
+
+@layer components {
+  /* Premium Glassmorphism */
+  .glass {
+    @apply bg-white/5 backdrop-blur-xl border border-white/10 shadow-xl;
+  }
+  
+  .glass-dark {
+    @apply bg-dark-900/60 backdrop-blur-2xl border border-white/5 shadow-2xl;
+  }
+
+  .glass-card {
+    @apply bg-dark-800/80 backdrop-blur-lg border border-dark-600 
+           rounded-2xl p-6 transition-all duration-300
+           hover:border-primary-500/40 hover:shadow-[0_0_30px_rgba(99,102,241,0.15)]
+           hover:-translate-y-1;
+  }
+
+  /* Animated Gradients */
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r;
+  }
+  
+  .text-gradient-primary {
+    @apply text-gradient from-primary-400 via-accent-400 to-primary-500;
+  }
+
+  .bg-gradient-animated {
+    background-size: 200% 200%;
+    animation: gradientMove 8s ease infinite;
+  }
+
+  /* Buttons */
+  .btn-primary {
+    @apply relative overflow-hidden bg-primary-600 hover:bg-primary-500 
+           text-white font-semibold py-3 px-6 
+           rounded-xl transition-all duration-300 
+           hover:shadow-[0_0_20px_rgba(99,102,241,0.4)]
+           active:scale-[0.98] active:shadow-none;
+  }
+
+  .btn-primary::after {
+    content: '';
+    @apply absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent
+           -translate-x-[150%] transition-transform duration-500 ease-out;
+  }
+
+  .btn-primary:hover::after {
+    @apply translate-x-[150%];
+  }
+
+  .btn-secondary {
+    @apply bg-dark-800/80 hover:bg-dark-700 
+           text-slate-200 font-medium py-3 px-6 
+           rounded-xl border border-dark-600 
+           hover:border-primary-500/50 hover:text-white
+           transition-all duration-300 backdrop-blur-md;
+  }
+
+  /* Cards */
+  .card {
+    @apply glass-card;
+  }
+
+  /* Badges */
+  .badge {
+    @apply px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border backdrop-blur-md;
+  }
+  .badge-rookie  { @apply badge bg-green-500/10 text-green-400 border-green-500/30; }
+  .badge-warrior { @apply badge bg-yellow-500/10 text-yellow-400 border-yellow-500/30; }
+  .badge-legend  { @apply badge bg-red-500/10 text-red-400 border-red-500/30; }
+}
+
+@keyframes gradientMove {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
