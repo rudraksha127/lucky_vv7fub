@@ -9,7 +9,7 @@ import {
   Target,
 } from 'lucide-react'
 
-import useAuthStore from '../store/useAuthStore'
+import useUserStore from '../stores/useUserStore'
 import api from '../lib/api'
 import {
   LEVEL_THRESHOLDS, CREATURE_EMOJIS, EVOLUTION_STAGES,
@@ -398,7 +398,7 @@ function NotificationPreferences() {
 // ─── Main Profile Page ──────────────────────────────────────
 export default function ProfilePage() {
   const { getToken } = useAuth()
-  const { user, loading, fetchUser } = useAuthStore()
+  const { user, loading, fetchUser } = useUserStore()
   const [stats, setStats] = useState(null)
   const [submissions, setSubmissions] = useState([])
   const [statsLoading, setStatsLoading] = useState(true)

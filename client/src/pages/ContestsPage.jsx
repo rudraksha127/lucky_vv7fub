@@ -15,7 +15,7 @@ export default function ContestsPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    api.get('/api/contests')
+    api.get('/contests')
       .then(({ data }) => setContests(data.contests || data || []))
       .catch(() => {})
       .finally(() => setLoading(false))

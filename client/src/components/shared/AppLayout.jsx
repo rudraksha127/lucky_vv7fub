@@ -14,6 +14,7 @@ import {
   Menu,
   X,
   Zap,
+  ShieldCheck,
 } from 'lucide-react'
 import useUserStore from '@/stores/useUserStore'
 import { setAuthInterceptor, setDevAuthInterceptor } from '@/lib/api'
@@ -84,6 +85,15 @@ function Sidebar({ onClose }) {
   const streakCurrent = userState.user?.streak?.current ?? 0
   const displayName = userState.user?.username ?? 'Coder'
   const displayEmail = userState.user?.email ?? ''
+  const role = userState.user?.role ?? 'student'
+
+  const activeLinks = [...NAV_LINKS]
+  if (role === 'professor' || role === 'admin') {
+    activeLinks.push({ to: '/professor', label: 'Manage Class', icon: GraduationCap })
+  }
+  if (role === 'admin') {
+    activeLinks.push({ to: '/admin', label: 'Admin Panel', icon: ShieldCheck })
+  }
 
   return (
     <aside className="flex h-full w-64 flex-col glass-dark border-r-0">
@@ -105,7 +115,7 @@ function Sidebar({ onClose }) {
 
       {/* Nav */}
       <nav className="flex-1 space-y-1 px-2">
-        {NAV_LINKS.map(({ to, label, icon: Icon }) => (
+        {activeLinks.map(({ to, label, icon: Icon }) => (
           <NavItem key={to} to={to} label={label} Icon={Icon} onClick={onClose} />
         ))}
       </nav>
@@ -171,7 +181,7 @@ export default function AppLayout() {
   }, [navigate])
 
   // Socket URL
-  const WS_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
+  const WS_URL = import.meta.env.VITE_SOCKET_URL || (import.meta.env.VITE_API_URL || 'http://localhost:5000').replace('/api', '')
 
   // Setup socket for real-time notifications
   useEffect(() => {

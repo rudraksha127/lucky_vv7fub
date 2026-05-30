@@ -3,8 +3,8 @@ import AppLayout from './components/shared/AppLayout'
 import LandingPage from './pages/LandingPage'
 import DashboardPage from './pages/DashboardPage'
 import ProblemsPage from './pages/ProblemsPage'
-import ProblemDetailPage from './pages/ProblemDetailPage'
 import ProblemSolvePage from './pages/ProblemSolvePage'
+import AdminPanelPage from './pages/AdminPanelPage'
 import ProfilePage from './pages/ProfilePage'
 import ContestsPage from './pages/ContestsPage'
 import BattlePage from './pages/BattlePage'
@@ -26,18 +26,20 @@ export default function App() {
         <Route path="/sign-up" element={<SignUpPage />} />
 
         {/* Full-screen code editor (has its own header) */}
+        <Route path="/problems/:slug" element={<ProblemSolvePage />} />
         <Route path="/problems/:slug/solve" element={<ProblemSolvePage />} />
 
         {/* App layout with sidebar */}
         <Route element={<AppLayout />}>
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/problems" element={<ProblemsPage />} />
-          <Route path="/problems/:slug" element={<ProblemDetailPage />} />
           <Route path="/contests" element={<ContestsPage />} />
           <Route path="/contests/:contestId" element={<ContestLivePage />} />
           <Route path="/battle" element={<BattlePage />} />
           <Route path="/classroom/join" element={<ClassroomJoinPage />} />
           <Route path="/classroom/manage" element={<ProfessorDashboardPage />} />
+          <Route path="/professor" element={<ProfessorDashboardPage />} />
+          <Route path="/admin" element={<AdminPanelPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
